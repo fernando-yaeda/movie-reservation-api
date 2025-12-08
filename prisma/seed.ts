@@ -1,9 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-// prisma/seed.ts
+import { PrismaPg } from '@prisma/adapter-pg';
 import {
   UserRole,
   SeatStatus,
@@ -11,7 +6,6 @@ import {
   PrismaClient,
 } from '../generated/prisma/client';
 import { hash } from 'bcrypt';
-import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
 
 const prisma = new PrismaClient({
@@ -21,13 +15,20 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  console.log('🌱 Starting seed...');
+  console.log('Starting seed...');
 
   // 1. Create Users
-  console.log('👤 Creating users...');
-  const hashedPassword = await hash('password', 12);
+  console.log('Creating users...');
+  const hashedPassword = await hash('password123', 12);
 
-  const regularUsers = await Promise.all([
+  const users = await Promise.all([
+    prisma.user.create({
+      data: {
+        email: 'admin@cinema.com',
+        password: hashedPassword,
+        role: UserRole.ADMIN,
+      },
+    }),
     prisma.user.create({
       data: {
         email: 'john@example.com',
@@ -51,10 +52,10 @@ async function main() {
     }),
   ]);
 
-  console.log(`✅ Created ${regularUsers.length + 1} users`);
+  console.log(`Created ${users.length} users`);
 
   // 2. Create Movies
-  console.log('🎬 Creating movies...');
+  console.log('Creating movies...');
   const movies = await Promise.all([
     prisma.movie.create({
       data: {
@@ -65,7 +66,7 @@ async function main() {
         posterUrl:
           'https://image.tmdb.org/t/p/w500/hm58Jw4Lw8OIeECIq5qyPYhAeRJ.jpg',
         genres: ['Animation', 'Comedy', 'Drama', 'Family', 'Fantasy', 'Music'],
-        runtimeInMinuts: 100,
+        runtimeInMinutes: 100,
       },
     }),
     prisma.movie.create({
@@ -77,7 +78,7 @@ async function main() {
         posterUrl:
           'https://image.tmdb.org/t/p/w500/xmbU4JTUm8rsdtn7Y3Fcm30GpeT.jpg',
         genres: ['Action', 'Comedy', 'Sci-Fi'],
-        runtimeInMinuts: 115,
+        runtimeInMinutes: 115,
       },
     }),
     prisma.movie.create({
@@ -89,7 +90,7 @@ async function main() {
         posterUrl:
           'https://image.tmdb.org/t/p/w500/bcCBq9N1EMo3daNIjWJ8kYvrQm6.jpg',
         genres: ['Action', 'Adventure', 'Fantasy', 'Sci-Fi'],
-        runtimeInMinuts: 157,
+        runtimeInMinutes: 157,
       },
     }),
     prisma.movie.create({
@@ -101,237 +102,203 @@ async function main() {
         posterUrl:
           'https://image.tmdb.org/t/p/w500/61J34xH6eL4a8LFBX7J7HqmRZh6.jpg',
         genres: ['Comedy', 'Drama', 'Romance'],
-        runtimeInMinuts: 108,
+        runtimeInMinutes: 108,
       },
     }),
   ]);
 
-  console.log(`✅ Created ${movies.length} movies`);
+  console.log(`Created ${movies.length} movies`);
 
   // 3. Create Rooms with Seats
-  console.log('🎭 Creating rooms and seats...');
+  console.log('Creating rooms and seats...');
 
-  const rooms = await Promise.all([
-    // Room 1 - Small Room (60 seats)
-    createRoomWithSeats('Sala 1', 60, 6, 10),
-    // Room 2 - Medium Room (100 seats)
-    createRoomWithSeats('Sala 2', 100, 10, 10),
-    // Room 3 - Large Room (150 seats)
-    createRoomWithSeats('Sala 3', 150, 10, 15),
-    // Room 4 - IMAX Room (200 seats)
-    createRoomWithSeats('Sala IMAX', 200, 10, 20),
-  ]);
+  async function createRoomWithSeats(
+    name: string,
+    rows: number,
+    seatsPerRow: number,
+  ) {
+    const room = await prisma.room.create({
+      data: {
+        name,
+        capacity: rows * seatsPerRow,
+      },
+    });
 
-  console.log(`✅ Created ${rooms.length} rooms with seats`);
+    const seatsData: Array<{
+      roomId: string;
+      row: string;
+      number: string;
+    }> = [];
+    const rowLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-  // 4. Create ShowTimes
-  console.log('⏰ Creating showtimes...');
-
-  // Helper to create showtimes for a movie in different rooms
-  async function createShowtimesForMovie(movieId: string, baseDate: Date) {
-    const showtimes: Promise<import('generated/prisma/client').ShowTime>[] = [];
-
-    // Create showtimes for each room
-    for (const room of rooms) {
-      // Morning show
-      const morningShow = new Date(baseDate);
-      morningShow.setHours(10, 0, 0, 0);
-
-      // Afternoon show
-      const afternoonShow = new Date(baseDate);
-      afternoonShow.setHours(14, 30, 0, 0);
-
-      // Evening show
-      const eveningShow = new Date(baseDate);
-      eveningShow.setHours(19, 0, 0, 0);
-
-      // Night show
-      const nightShow = new Date(baseDate);
-      nightShow.setHours(22, 0, 0, 0);
-
-      showtimes.push(
-        prisma.showTime.create({
-          data: {
-            startTime: morningShow,
-            priceInCents: 2500, // $25.00
-            movieId,
-            roomId: room.id,
-          },
-        }),
-        prisma.showTime.create({
-          data: {
-            startTime: afternoonShow,
-            priceInCents: 3000, // $30.00
-            movieId,
-            roomId: room.id,
-          },
-        }),
-        prisma.showTime.create({
-          data: {
-            startTime: eveningShow,
-            priceInCents: 3500, // $35.00
-            movieId,
-            roomId: room.id,
-          },
-        }),
-      );
+    for (let rowIndex = 0; rowIndex < rows; rowIndex++) {
+      for (let seatNum = 1; seatNum <= seatsPerRow; seatNum++) {
+        seatsData.push({
+          roomId: room.id,
+          row: rowLetters[rowIndex],
+          number: seatNum.toString(),
+        });
+      }
     }
 
-    return Promise.all(showtimes);
+    await prisma.seat.createMany({ data: seatsData });
+
+    const seats = await prisma.seat.findMany({
+      where: { roomId: room.id },
+    });
+
+    return { room, seats };
   }
 
-  // Create showtimes for today and tomorrow
+  const room1 = await createRoomWithSeats('Room 1', 6, 10); // 60 seats
+  const room2 = await createRoomWithSeats('Room 2', 10, 10); // 100 seats
+  const room3 = await createRoomWithSeats('Room 3', 10, 15); // 150 seats
+  const room4 = await createRoomWithSeats('Room IMAX', 10, 20); // 200 seats
+
+  const rooms = [room1, room2, room3, room4];
+  console.log(`Created ${rooms.length} rooms with seats`);
+
+  // 4. Create Showtimes WITHOUT conflicts
+  console.log('Creating showtimes...');
+
+  const allShowtimes: Array<{
+    id: string;
+    createdAt: Date;
+    roomId: string;
+    startTime: Date;
+    priceInCents: number;
+    movieId: string;
+  }> = [];
+
+  // Create today and tomorrow dates
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  let allShowtimes: import('generated/prisma/client').ShowTime[] = [];
+  // Schedule configuration
+  const movieRoomAssignments = [
+    { movie: movies[0], room: room1.room },
+    { movie: movies[1], room: room2.room },
+    { movie: movies[2], room: room3.room },
+    { movie: movies[3], room: room4.room },
+  ];
 
-  for (const movie of movies) {
-    const todaysShowtimes = await createShowtimesForMovie(movie.id, today);
-    const tomorrowsShowtimes = await createShowtimesForMovie(
-      movie.id,
-      tomorrow,
-    );
+  for (const day of [today, tomorrow]) {
+    for (let i = 0; i < movieRoomAssignments.length; i++) {
+      const { movie, room } = movieRoomAssignments[i];
 
-    allShowtimes = [...allShowtimes, ...todaysShowtimes, ...tomorrowsShowtimes];
+      // Create 3 showtimes per day for each room
+      const timeSlots = [
+        { hour: 10, minute: 0, price: 2500 },
+        { hour: 14, minute: 30, price: 3000 },
+        { hour: 19, minute: 0, price: 3500 },
+      ];
+
+      for (const timeSlot of timeSlots) {
+        const showtimeDate = new Date(day);
+        showtimeDate.setHours(timeSlot.hour, timeSlot.minute, 0, 0);
+
+        // Verify no conflict
+        const existingShowtime = await prisma.showtime.findFirst({
+          where: {
+            roomId: room.id,
+            startTime: showtimeDate,
+          },
+        });
+
+        if (!existingShowtime) {
+          const showtime = await prisma.showtime.create({
+            data: {
+              startTime: showtimeDate,
+              priceInCents: timeSlot.price,
+              movieId: movie.id,
+              roomId: room.id,
+            },
+          });
+
+          allShowtimes.push(showtime);
+        }
+      }
+    }
   }
 
-  console.log(`✅ Created ${allShowtimes.length} showtimes`);
+  console.log(`Created ${allShowtimes.length} showtimes`);
 
-  // 5. Create ShowTimeSeats entries (initialize all seats as AVAILABLE)
-  console.log('💺 Initializing seat status for showtimes...');
+  // 5. CRITICAL: Create ShowtimeSeats for EACH showtime
+  console.log('Creating showtime seats...');
 
-  // For simplicity, let's initialize seats for first 5 showtimes
-  const showtimesToInitialize = allShowtimes.slice(0, 5);
+  for (const showtime of allShowtimes) {
+    const roomData = rooms.find((r) => r.room.id === showtime.roomId);
 
-  for (const showtime of showtimesToInitialize) {
-    const room = await prisma.room.findUnique({
-      where: { id: showtime.roomId },
-      include: { seats: true },
-    });
-
-    if (room && room.seats.length > 0) {
-      const seatStatuses = room.seats.map((seat) => ({
-        showTimeId: showtime.id,
+    if (roomData) {
+      // Create ShowtimeSeats entry for each seat in the room
+      const showtimeSeatsData = roomData.seats.map((seat) => ({
+        showtimeId: showtime.id,
         seatId: seat.id,
         status: SeatStatus.AVAILABLE,
       }));
 
-      // Create in batches of 50 to avoid too many parameters
-      for (let i = 0; i < seatStatuses.length; i += 50) {
-        const batch = seatStatuses.slice(i, i + 50);
-        await prisma.showTimeSeats.createMany({
+      // Insert in batches
+      const batchSize = 100;
+      for (let i = 0; i < showtimeSeatsData.length; i += batchSize) {
+        const batch = showtimeSeatsData.slice(i, i + batchSize);
+        await prisma.showtimeSeats.createMany({
           data: batch,
           skipDuplicates: true,
         });
       }
 
       console.log(
-        `✅ Initialized ${room.seats.length} seats for showtime ${showtime.id}`,
+        `Created ${showtimeSeatsData.length} showtime seats for showtime ${showtime.id}`,
       );
     }
   }
 
-  // 6. Create Sample Bookings (optional - for testing)
-  console.log('🎟️ Creating sample bookings...');
+  // 6. Create sample booking
+  console.log('Creating sample booking...');
 
-  // Let's create a booking for the first showtime
-  const firstShowtime = allShowtimes[0];
-  const firstRoom = rooms.find((r) => r.id === firstShowtime.roomId);
+  if (allShowtimes.length > 0 && room1.seats.length >= 4) {
+    const showtime = allShowtimes[0];
+    const seatsToBook = room1.seats.slice(0, 4);
+    const seatLabels = seatsToBook.map((s) => `${s.row}${s.number}`);
 
-  if (firstRoom) {
-    // Get some seats from the room
-    const roomSeats = await prisma.seat.findMany({
-      where: { roomId: firstRoom.id },
-      take: 4,
+    const booking = await prisma.booking.create({
+      data: {
+        seats: seatLabels,
+        totalPriceInCents: showtime.priceInCents * 4,
+        userId: users[1].id, // John
+        showtimeId: showtime.id,
+        status: BookingStatus.CONFIRMED,
+      },
     });
 
-    if (roomSeats.length >= 4) {
-      const seatLabels = roomSeats.map((seat) => `${seat.row}${seat.number}`);
-
-      // Create booking
-      const booking = await prisma.booking.create({
+    // Update seat status to RESERVED
+    for (const seat of seatsToBook) {
+      await prisma.showtimeSeats.updateMany({
+        where: {
+          showtimeId: showtime.id,
+          seatId: seat.id,
+        },
         data: {
-          seats: seatLabels,
-          totalPriceInCents: firstShowtime.priceInCents * 4,
-          userId: regularUsers[0].id,
-          showTimeId: firstShowtime.id,
-          status: BookingStatus.CONFIRMED,
+          status: SeatStatus.RESERVED,
+          bookingId: booking.id,
         },
       });
-
-      // Update seat status to RESERVED
-      await Promise.all(
-        roomSeats.map((seat) =>
-          prisma.showTimeSeats.updateMany({
-            where: {
-              showTimeId: firstShowtime.id,
-              seatId: seat.id,
-            },
-            data: {
-              status: SeatStatus.RESERVED,
-              bookingId: booking.id,
-            },
-          }),
-        ),
-      );
-
-      console.log(
-        `✅ Created sample booking ${booking.id} with ${seatLabels.length} seats`,
-      );
     }
+
+    console.log(
+      `Created booking ${booking.id} with ${seatLabels.length} seats`,
+    );
   }
 
-  console.log('🎉 Seed completed successfully!');
-}
-
-async function createRoomWithSeats(
-  name: string,
-  capacity: number,
-  rows: number,
-  seatsPerRow: number,
-) {
-  // Create room
-  const room = await prisma.room.create({
-    data: {
-      name,
-      capacity,
-    },
-  });
-
-  // Create seats for the room
-  const rowLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-  const seats: { roomId: string; row: string; number: string }[] = [];
-
-  for (let rowIndex = 0; rowIndex < rows; rowIndex++) {
-    const rowLetter = rowLetters[rowIndex];
-
-    for (let seatNum = 1; seatNum <= seatsPerRow; seatNum++) {
-      seats.push({
-        roomId: room.id,
-        row: rowLetter,
-        number: seatNum.toString(),
-      });
-    }
-  }
-
-  // Insert seats in batches
-  for (let i = 0; i < seats.length; i += 100) {
-    const batch = seats.slice(i, i + 100);
-    await prisma.seat.createMany({
-      data: batch,
-    });
-  }
-
-  return room;
+  console.log('Seed completed successfully!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Error during seed:', e);
+    console.error('Error during seed:', e);
     process.exit(1);
   })
   .finally(async () => {
