@@ -21,7 +21,11 @@ export class ReservationsService {
         },
       },
       include: {
-        showtimes: true,
+        showtimes: {
+          orderBy: {
+            startTime: 'asc',
+          },
+        },
       },
     });
   }
