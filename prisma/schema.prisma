@@ -28,15 +28,15 @@ model User {
 }
 
 model Movie {
-  id              String   @id @default(uuid())
-  imdbId          String   @unique
-  title           String
-  description     String
-  posterUrl       String
-  genres          String[]
-  runtimeInMinuts Int
+  id               String   @id @default(uuid())
+  imdbId           String   @unique
+  title            String
+  description      String
+  posterUrl        String
+  genres           String[]
+  runtimeInMinutes Int
 
-  showtimes ShowTime[]
+  showtimes Showtime[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -50,7 +50,7 @@ model Room {
   capacity Int
 
   seats     Seat[]
-  showTimes ShowTime[]
+  showtimes Showtime[]
 
   createdAt DateTime @default(now())
 
@@ -64,7 +64,7 @@ model Seat {
 
   roomId     String
   room       Room            @relation(fields: [roomId], references: [id])
-  seatStatus ShowTimeSeats[]
+  seatStatus ShowtimeSeats[]
 
   createdAt DateTime @default(now())
 
@@ -72,7 +72,7 @@ model Seat {
   @@map("seats")
 }
 
-model ShowTime {
+model Showtime {
   id           String   @id @default(uuid())
   startTime    DateTime
   priceInCents Int
@@ -83,7 +83,7 @@ model ShowTime {
   roomId String
   room   Room   @relation(fields: [roomId], references: [id])
 
-  seatStatus ShowTimeSeats[]
+  seatStatus ShowtimeSeats[]
 
   createdAt DateTime  @default(now())
   bookings  Booking[]
@@ -91,18 +91,18 @@ model ShowTime {
   @@map("showtimes")
 }
 
-model ShowTimeSeats {
+model ShowtimeSeats {
   id     String     @id @default(uuid())
   status SeatStatus @default(AVAILABLE)
 
-  showTimeId String
-  showtime   ShowTime @relation(fields: [showTimeId], references: [id])
+  showtimeId String
+  showtime   Showtime @relation(fields: [showtimeId], references: [id])
   seatId     String
   seat       Seat     @relation(fields: [seatId], references: [id])
   bookingId  String? //filled after booking
   booking    Booking? @relation(fields: [bookingId], references: [id])
 
-  @@unique([showTimeId, seatId])
+  @@unique([showtimeId, seatId])
   @@map("showtime_seats")
 }
 
@@ -116,13 +116,13 @@ model Booking {
 
   userId     String
   user       User     @relation(fields: [userId], references: [id])
-  showTimeId String
-  showtime   ShowTime @relation(fields: [showTimeId], references: [id])
+  showtimeId String
+  showtime   Showtime @relation(fields: [showtimeId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  showTimeSeats ShowTimeSeats[]
+  showtimeSeats ShowtimeSeats[]
 
   @@map("bookings")
 }
