@@ -7,7 +7,7 @@ export interface ValidatedMovieData {
   description: string;
   posterUrl: string;
   genres: string[];
-  runtimeInMinuts: number;
+  runtimeInMinutes: number;
 }
 
 @Injectable()
@@ -37,7 +37,7 @@ export class MovieValidator {
       title: omdbMovie.Title,
       description: omdbMovie.Plot,
       posterUrl: omdbMovie.Poster,
-      runtimeInMinuts: this.parseRuntime(omdbMovie.Runtime),
+      runtimeInMinutes: this.parseRuntime(omdbMovie.Runtime),
       genres: this.parseGenres(omdbMovie.Genre),
     };
   }

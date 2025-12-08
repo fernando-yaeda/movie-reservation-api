@@ -42,7 +42,7 @@ export class MoviesService {
           description: validateMovieData.description,
           posterUrl: validateMovieData.posterUrl,
           genres: validateMovieData.genres,
-          runtimeInMinuts: validateMovieData.runtimeInMinuts,
+          runtimeInMinutes: validateMovieData.runtimeInMinutes,
         },
       });
     } catch (error) {

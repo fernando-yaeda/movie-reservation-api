@@ -15,7 +15,7 @@ export class UpdateMovieDTO {
 
   @IsInt()
   @IsOptional()
-  runtimeInMinuts: number;
+  runtimeInMinutes: number;
 
   @IsString()
   @IsOptional()
