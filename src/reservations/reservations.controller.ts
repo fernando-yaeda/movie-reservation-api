@@ -17,7 +17,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 export class ReservationsContoller {
   constructor(private readonly reservationService: ReservationsService) {}
 
-  @Get()
+  @Get('/scheduled')
   async getMoviesAndShowtimesByDate(@Query('date') date: string) {
     const formatedDate = new Date(date);
     return await this.reservationService.getMoviesWithShowtimesForDate(
@@ -32,7 +32,7 @@ export class ReservationsContoller {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  async reserveSeats(
+  async createReservation(
     @GetCurrentUser() user: User,
     @Body() createReservationDto: CreateReservationDTO,
   ) {
@@ -40,5 +40,20 @@ export class ReservationsContoller {
       user.id,
       createReservationDto,
     );
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  async getUserReservations(@GetCurrentUser() user: User) {
+    return await this.reservationService.getUserBookings(user.id);
+  }
+
+  @Post(':reservationId')
+  @UseGuards(JwtAuthGuard)
+  async cancelReservation(
+    @GetCurrentUser() user: User,
+    @Param('reservationId') reservationId,
+  ) {
+    return await this.reservationService.cancelBooking(user.id, reservationId);
   }
 }

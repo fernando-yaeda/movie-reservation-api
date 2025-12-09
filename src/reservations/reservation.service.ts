@@ -1,7 +1,9 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReservationDTO } from './dto/create-reservation.dto';
@@ -78,6 +80,7 @@ export class ReservationsService {
     createReservationDto: CreateReservationDTO,
   ) {
     const { showtimeId, seatIds } = createReservationDto;
+    const currentDate = new Date();
 
     return await this.prismaService.$transaction(async (tx) => {
       const showtime = await tx.showtime.findUnique({
@@ -86,11 +89,21 @@ export class ReservationsService {
         },
         select: {
           priceInCents: true,
+          startTime: true,
         },
       });
 
       if (!showtime) {
         throw new NotFoundException('showtime not found');
+      }
+
+      const isIncommingStartTime =
+        showtime.startTime.getTime() - currentDate.getTime();
+
+      if (isIncommingStartTime < 0) {
+        throw new BadRequestException(
+          'cant book a showtime with starting time in past',
+        );
       }
 
       const seatsStatus = await tx.showtimeSeats.findMany({
@@ -214,6 +227,85 @@ export class ReservationsService {
         booking: completeBooking,
         message: `reservation confirmed for ${seatIds.length} seats`,
       };
+    });
+  }
+
+  async getUserBookings(userId: string) {
+    return await this.prismaService.booking.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        seats: true,
+        totalPriceInCents: true,
+        status: true,
+        createdAt: true,
+        showtime: {
+          select: {
+            id: true,
+            startTime: true,
+            movie: {
+              select: {
+                id: true,
+                title: true,
+                posterUrl: true,
+              },
+            },
+            room: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async cancelBooking(userId: string, bookingId: string) {
+    const currentDate = new Date();
+    const booking = await this.prismaService.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        showtime: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('booking not found');
+    }
+
+    if (booking.userId !== userId) {
+      throw new UnauthorizedException(
+        'you can only cancel your own reservations',
+      );
+    }
+
+    const showtimeStart = booking.showtime.startTime;
+    const timeDifferenceInMs = showtimeStart.getTime() - currentDate.getTime();
+    const timeDifferenceInHours = timeDifferenceInMs / (1000 * 60 * 60);
+
+    if (timeDifferenceInHours < 1) {
+      throw new BadRequestException(
+        'cancellation must be done at least 1 hour before showtime starts',
+      );
+    }
+
+    await this.prismaService.$transaction(async (tx) => {
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: BookingStatus.CANCELLED,
+        },
+      });
+
+      await tx.showtimeSeats.updateMany({
+        where: { bookingId },
+        data: {
+          bookingId: null,
+          status: SeatStatus.RESERVED,
+        },
+      });
     });
   }
 }
